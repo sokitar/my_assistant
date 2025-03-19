@@ -1,0 +1,734 @@
+{% extends "base.html" %}
+
+{% block title %}Personal Assistant - Calendar{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.css">
+<style>
+    .calendar-container {
+        height: 70vh;
+    }
+    
+    .event-list {
+        max-height: 70vh;
+        overflow-y: auto;
+    }
+    
+    .event-item {
+        cursor: pointer;
+        transition: background-color 0.2s;
+    }
+    
+    .event-item:hover {
+        background-color: rgba(0, 123, 255, 0.1);
+    }
+    
+    .event-detail {
+        max-height: 70vh;
+        overflow-y: auto;
+    }
+    
+    .fc-event {
+        cursor: pointer;
+    }
+    
+    .event-form label {
+        font-weight: 500;
+    }
+    
+    .fc-daygrid-day.fc-day-today {
+        background-color: rgba(0, 123, 255, 0.1) !important;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12 mb-4">
+        <div class="d-flex justify-content-between align-items-center">
+            <h2><i class="fas fa-calendar me-2"></i>Calendar</h2>
+            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createEventModal">
+                <i class="fas fa-plus me-1"></i>Create Event
+            </button>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Calendar View -->
+    <div class="col-md-8">
+        <div class="card shadow">
+            <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Calendar</h5>
+                <div>
+                    <button class="btn btn-sm btn-light" id="refresh-calendar-btn" title="Refresh">
+                        <i class="fas fa-sync-alt"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
+                <div id="calendar" class="calendar-container"></div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Upcoming Events -->
+    <div class="col-md-4">
+        <div class="card shadow">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">Upcoming Events</h5>
+            </div>
+            <div class="card-body p-0">
+                <div class="list-group event-list" id="event-list">
+                    <div class="text-center py-5">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <p class="mt-2">Loading events...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card mt-3">
+            <div class="card-header bg-light">
+                <h6 class="mb-0">Search</h6>
+            </div>
+            <div class="card-body">
+                <form id="search-form">
+                    <div class="input-group">
+                        <input type="text" class="form-control" id="search-input" placeholder="Search events...">
+                        <button class="btn btn-outline-primary" type="submit">
+                            <i class="fas fa-search"></i>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Event Detail Modal -->
+<div class="modal fade" id="eventDetailModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="event-detail-title">Event Details</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body event-detail" id="event-detail">
+                <div class="text-center py-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="mt-2">Loading event details...</p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" id="edit-event-btn">
+                    <i class="fas fa-edit me-1"></i>Edit
+                </button>
+                <button type="button" class="btn btn-danger" id="delete-event-btn">
+                    <i class="fas fa-trash me-1"></i>Delete
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Create Event Modal -->
+<div class="modal fade" id="createEventModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title">
+                    <i class="fas fa-calendar-plus me-2"></i>Create Event
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="create-event-form" class="event-form">
+                    <div class="mb-3">
+                        <label for="event-summary" class="form-label">Title:</label>
+                        <input type="text" class="form-control" id="event-summary" required>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="event-start" class="form-label">Start:</label>
+                            <input type="datetime-local" class="form-control" id="event-start" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="event-end" class="form-label">End:</label>
+                            <input type="datetime-local" class="form-control" id="event-end" required>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="event-location" class="form-label">Location:</label>
+                        <input type="text" class="form-control" id="event-location">
+                    </div>
+                    <div class="mb-3">
+                        <label for="event-description" class="form-label">Description:</label>
+                        <textarea class="form-control" id="event-description" rows="5"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="create-event-btn">
+                    <i class="fas fa-save me-1"></i>Create
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Event Modal -->
+<div class="modal fade" id="editEventModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title">
+                    <i class="fas fa-edit me-2"></i>Edit Event
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="edit-event-form" class="event-form">
+                    <input type="hidden" id="edit-event-id">
+                    <div class="mb-3">
+                        <label for="edit-event-summary" class="form-label">Title:</label>
+                        <input type="text" class="form-control" id="edit-event-summary" required>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="edit-event-start" class="form-label">Start:</label>
+                            <input type="datetime-local" class="form-control" id="edit-event-start" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="edit-event-end" class="form-label">End:</label>
+                            <input type="datetime-local" class="form-control" id="edit-event-end" required>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="edit-event-location" class="form-label">Location:</label>
+                        <input type="text" class="form-control" id="edit-event-location">
+                    </div>
+                    <div class="mb-3">
+                        <label for="edit-event-description" class="form-label">Description:</label>
+                        <textarea class="form-control" id="edit-event-description" rows="5"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="save-event-btn">
+                    <i class="fas fa-save me-1"></i>Save
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const calendarEl = document.getElementById('calendar');
+        const eventList = document.getElementById('event-list');
+        const eventDetail = document.getElementById('event-detail');
+        const eventDetailTitle = document.getElementById('event-detail-title');
+        const refreshCalendarBtn = document.getElementById('refresh-calendar-btn');
+        const searchForm = document.getElementById('search-form');
+        const searchInput = document.getElementById('search-input');
+        const createEventForm = document.getElementById('create-event-form');
+        const createEventBtn = document.getElementById('create-event-btn');
+        const editEventBtn = document.getElementById('edit-event-btn');
+        const deleteEventBtn = document.getElementById('delete-event-btn');
+        const editEventForm = document.getElementById('edit-event-form');
+        const saveEventBtn = document.getElementById('save-event-btn');
+        
+        let currentEvent = null;
+        let calendar = null;
+        
+        // Initialize FullCalendar
+        initializeCalendar();
+        
+        // Load upcoming events
+        loadUpcomingEvents();
+        
+        // Refresh calendar when refresh button is clicked
+        refreshCalendarBtn.addEventListener('click', function() {
+            calendar.refetchEvents();
+            loadUpcomingEvents();
+        });
+        
+        // Search events when search form is submitted
+        searchForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const query = searchInput.value.trim();
+            if (query) {
+                searchEvents(query);
+            } else {
+                loadUpcomingEvents();
+            }
+        });
+        
+        // Create event when create button is clicked
+        createEventBtn.addEventListener('click', function() {
+            if (createEventForm.checkValidity()) {
+                createEvent();
+            } else {
+                createEventForm.reportValidity();
+            }
+        });
+        
+        // Edit event when edit button is clicked
+        editEventBtn.addEventListener('click', function() {
+            if (currentEvent) {
+                prepareEditEvent();
+            }
+        });
+        
+        // Delete event when delete button is clicked
+        deleteEventBtn.addEventListener('click', function() {
+            if (currentEvent) {
+                deleteEvent();
+            }
+        });
+        
+        // Save event when save button is clicked
+        saveEventBtn.addEventListener('click', function() {
+            if (editEventForm.checkValidity()) {
+                updateEvent();
+            } else {
+                editEventForm.reportValidity();
+            }
+        });
+        
+        // Function to initialize FullCalendar
+        function initializeCalendar() {
+            calendar = new FullCalendar.Calendar(calendarEl, {
+                initialView: 'dayGridMonth',
+                headerToolbar: {
+                    left: 'prev,next today',
+                    center: 'title',
+                    right: 'dayGridMonth,timeGridWeek,timeGridDay'
+                },
+                events: function(info, successCallback, failureCallback) {
+                    // Fetch events from API
+                    fetch('/api/calendar/events')
+                        .then(response => response.json())
+                        .then(events => {
+                            // Format events for FullCalendar
+                            const formattedEvents = events.map(event => {
+                                return {
+                                    id: event.id,
+                                    title: event.summary,
+                                    start: event.start,
+                                    end: event.end,
+                                    location: event.location,
+                                    description: event.description,
+                                    allDay: !event.start.includes('T')
+                                };
+                            });
+                            
+                            successCallback(formattedEvents);
+                        })
+                        .catch(error => {
+                            console.error('Error:', error);
+                            failureCallback(error);
+                        });
+                },
+                eventClick: function(info) {
+                    // Show event details
+                    viewEvent(info.event);
+                },
+                dateClick: function(info) {
+                    // Open create event modal with the selected date
+                    const createEventModal = new bootstrap.Modal(document.getElementById('createEventModal'));
+                    
+                    // Set default start and end times
+                    const date = new Date(info.date);
+                    date.setHours(9, 0, 0);
+                    const endDate = new Date(date);
+                    endDate.setHours(10, 0, 0);
+                    
+                    document.getElementById('event-start').value = formatDateTimeForInput(date);
+                    document.getElementById('event-end').value = formatDateTimeForInput(endDate);
+                    
+                    createEventModal.show();
+                }
+            });
+            
+            calendar.render();
+        }
+        
+        // Function to load upcoming events
+        function loadUpcomingEvents() {
+            eventList.innerHTML = `
+                <div class="text-center py-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="mt-2">Loading events...</p>
+                </div>
+            `;
+            
+            fetch('/api/calendar/events')
+                .then(response => response.json())
+                .then(events => {
+                    if (events.length === 0) {
+                        eventList.innerHTML = `
+                            <div class="text-center py-5 text-muted">
+                                <i class="fas fa-calendar fa-3x mb-3"></i>
+                                <p>No upcoming events</p>
+                            </div>
+                        `;
+                    } else {
+                        eventList.innerHTML = '';
+                        events.forEach(event => {
+                            const startDate = new Date(event.start);
+                            const formattedDate = startDate.toLocaleDateString();
+                            const formattedTime = startDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                            
+                            const eventItem = document.createElement('a');
+                            eventItem.href = '#';
+                            eventItem.classList.add('list-group-item', 'list-group-item-action', 'event-item');
+                            eventItem.innerHTML = `
+                                <div class="d-flex w-100 justify-content-between">
+                                    <h6 class="mb-1">${event.summary}</h6>
+                                    <small>${formattedDate}</small>
+                                </div>
+                                <p class="mb-1">${formattedTime}</p>
+                                ${event.location ? `<p class="mb-0 text-muted"><i class="fas fa-map-marker-alt me-1"></i>${event.location}</p>` : ''}
+                            `;
+                            
+                            eventItem.addEventListener('click', function(e) {
+                                e.preventDefault();
+                                
+                                // Create event object in FullCalendar format
+                                const fcEvent = {
+                                    id: event.id,
+                                    title: event.summary,
+                                    start: event.start,
+                                    end: event.end,
+                                    location: event.location,
+                                    description: event.description,
+                                    extendedProps: event
+                                };
+                                
+                                viewEvent(fcEvent);
+                            });
+                            
+                            eventList.appendChild(eventItem);
+                        });
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    eventList.innerHTML = `
+                        <div class="text-center py-5 text-danger">
+                            <i class="fas fa-exclamation-circle fa-3x mb-3"></i>
+                            <p>Error loading events. Please try again.</p>
+                        </div>
+                    `;
+                });
+        }
+        
+        // Function to search events
+        function searchEvents(query) {
+            eventList.innerHTML = `
+                <div class="text-center py-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="mt-2">Searching events...</p>
+                </div>
+            `;
+            
+            fetch(`/api/calendar/search?query=${encodeURIComponent(query)}`)
+                .then(response => response.json())
+                .then(events => {
+                    if (events.length === 0) {
+                        eventList.innerHTML = `
+                            <div class="text-center py-5 text-muted">
+                                <i class="fas fa-search fa-3x mb-3"></i>
+                                <p>No events found matching "${query}"</p>
+                            </div>
+                        `;
+                    } else {
+                        eventList.innerHTML = '';
+                        events.forEach(event => {
+                            const startDate = new Date(event.start);
+                            const formattedDate = startDate.toLocaleDateString();
+                            const formattedTime = startDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                            
+                            const eventItem = document.createElement('a');
+                            eventItem.href = '#';
+                            eventItem.classList.add('list-group-item', 'list-group-item-action', 'event-item');
+                            eventItem.innerHTML = `
+                                <div class="d-flex w-100 justify-content-between">
+                                    <h6 class="mb-1">${event.summary}</h6>
+                                    <small>${formattedDate}</small>
+                                </div>
+                                <p class="mb-1">${formattedTime}</p>
+                                ${event.location ? `<p class="mb-0 text-muted"><i class="fas fa-map-marker-alt me-1"></i>${event.location}</p>` : ''}
+                            `;
+                            
+                            eventItem.addEventListener('click', function(e) {
+                                e.preventDefault();
+                                
+                                // Create event object in FullCalendar format
+                                const fcEvent = {
+                                    id: event.id,
+                                    title: event.summary,
+                                    start: event.start,
+                                    end: event.end,
+                                    location: event.location,
+                                    description: event.description,
+                                    extendedProps: event
+                                };
+                                
+                                viewEvent(fcEvent);
+                            });
+                            
+                            eventList.appendChild(eventItem);
+                        });
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    eventList.innerHTML = `
+                        <div class="text-center py-5 text-danger">
+                            <i class="fas fa-exclamation-circle fa-3x mb-3"></i>
+                            <p>Error searching events. Please try again.</p>
+                        </div>
+                    `;
+                });
+        }
+        
+        // Function to view event details
+        function viewEvent(event) {
+            currentEvent = event;
+            
+            // Update event detail title
+            eventDetailTitle.textContent = event.title;
+            
+            // Format dates
+            const startDate = new Date(event.start);
+            const endDate = new Date(event.end);
+            const formattedStart = startDate.toLocaleString();
+            const formattedEnd = endDate.toLocaleString();
+            
+            // Update event detail
+            eventDetail.innerHTML = `
+                <div class="mb-4">
+                    <div class="mb-3">
+                        <h5 class="mb-1">${event.title}</h5>
+                        <div class="text-muted">
+                            <i class="fas fa-clock me-1"></i>${formattedStart} - ${formattedEnd}
+                        </div>
+                    </div>
+                    
+                    ${event.location ? `
+                    <div class="mb-3">
+                        <h6 class="mb-1">Location</h6>
+                        <div>${event.location}</div>
+                    </div>
+                    ` : ''}
+                    
+                    ${event.description ? `
+                    <div class="mb-3">
+                        <h6 class="mb-1">Description</h6>
+                        <div>${event.description.replace(/\n/g, '<br>')}</div>
+                    </div>
+                    ` : ''}
+                </div>
+            `;
+            
+            // Show event detail modal
+            const eventDetailModal = new bootstrap.Modal(document.getElementById('eventDetailModal'));
+            eventDetailModal.show();
+        }
+        
+        // Function to create event
+        function createEvent() {
+            const summary = document.getElementById('event-summary').value;
+            const start = document.getElementById('event-start').value;
+            const end = document.getElementById('event-end').value;
+            const location = document.getElementById('event-location').value;
+            const description = document.getElementById('event-description').value;
+            
+            // Disable create button
+            createEventBtn.disabled = true;
+            createEventBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>Creating...';
+            
+            fetch('/api/calendar/create', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    summary: summary,
+                    start_time: start,
+                    end_time: end,
+                    location: location || null,
+                    description: description || null
+                }),
+            })
+            .then(response => response.json())
+            .then(data => {
+                // Re-enable create button
+                createEventBtn.disabled = false;
+                createEventBtn.innerHTML = '<i class="fas fa-save me-1"></i>Create';
+                
+                // Close modal
+                const createEventModal = bootstrap.Modal.getInstance(document.getElementById('createEventModal'));
+                createEventModal.hide();
+                
+                // Show success message
+                alert('Event created successfully!');
+                
+                // Reset form
+                createEventForm.reset();
+                
+                // Refresh calendar
+                calendar.refetchEvents();
+                loadUpcomingEvents();
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                
+                // Re-enable create button
+                createEventBtn.disabled = false;
+                createEventBtn.innerHTML = '<i class="fas fa-save me-1"></i>Create';
+                
+                // Show error message
+                alert('Error creating event. Please try again.');
+            });
+        }
+        
+        // Function to prepare edit event
+        function prepareEditEvent() {
+            if (!currentEvent) return;
+            
+            // Set edit form fields
+            document.getElementById('edit-event-id').value = currentEvent.id;
+            document.getElementById('edit-event-summary').value = currentEvent.title;
+            
+            // Format dates for datetime-local input
+            const startDate = new Date(currentEvent.start);
+            const endDate = new Date(currentEvent.end);
+            
+            document.getElementById('edit-event-start').value = formatDateTimeForInput(startDate);
+            document.getElementById('edit-event-end').value = formatDateTimeForInput(endDate);
+            
+            document.getElementById('edit-event-location').value = currentEvent.location || '';
+            document.getElementById('edit-event-description').value = currentEvent.description || '';
+            
+            // Close event detail modal
+            const eventDetailModal = bootstrap.Modal.getInstance(document.getElementById('eventDetailModal'));
+            eventDetailModal.hide();
+            
+            // Show edit event modal
+            const editEventModal = new bootstrap.Modal(document.getElementById('editEventModal'));
+            editEventModal.show();
+        }
+        
+        // Function to update event
+        function updateEvent() {
+            const eventId = document.getElementById('edit-event-id').value;
+            const summary = document.getElementById('edit-event-summary').value;
+            const start = document.getElementById('edit-event-start').value;
+            const end = document.getElementById('edit-event-end').value;
+            const location = document.getElementById('edit-event-location').value;
+            const description = document.getElementById('edit-event-description').value;
+            
+            // Disable save button
+            saveEventBtn.disabled = true;
+            saveEventBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>Saving...';
+            
+            fetch(`/api/calendar/update/${eventId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    summary: summary,
+                    start_time: start,
+                    end_time: end,
+                    location: location || null,
+                    description: description || null
+                }),
+            })
+            .then(response => response.json())
+            .then(data => {
+                // Re-enable save button
+                saveEventBtn.disabled = false;
+                saveEventBtn.innerHTML = '<i class="fas fa-save me-1"></i>Save';
+                
+                // Close modal
+                const editEventModal = bootstrap.Modal.getInstance(document.getElementById('editEventModal'));
+                editEventModal.hide();
+                
+                // Show success message
+                alert('Event updated successfully!');
+                
+                // Reset form
+                editEventForm.reset();
+                
+                // Refresh calendar
+                calendar.refetchEvents();
+                loadUpcomingEvents();
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                
+                // Re-enable save button
+                saveEventBtn.disabled = false;
+                saveEventBtn.innerHTML = '<i class="fas fa-save me-1"></i>Save';
+                
+                // Show error message
+                alert('Error updating event. Please try again.');
+            });
+        }
+        
+        // Function to delete event
+        function deleteEvent() {
+            if (!currentEvent) return;
+            
+            if (confirm('Are you sure you want to delete this event?')) {
+                fetch(`/api/calendar/delete/${currentEvent.id}`, {
+                    method: 'DELETE'
+                })
+                .then(response => response.json())
+                .then(data => {
+                    // Close modal
+                    const eventDetailModal = bootstrap.Modal.getInstance(document.getElementById('eventDetailModal'));
+                    eventDetailModal.hide();
+                    
+                    // Show success message
+                    alert('Event deleted successfully!');
+                    
+                    // Refresh calendar
+                    calendar.refetchEvents();
+                    loadUpcomingEvents();
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    
+                    // Show error message
+                    alert('Error deleting event. Please try again.');
+                });
+            }
+        }
+        
+        // Helper function to format date for datetime-local input
+        function formatDateTimeForInput(date) {
+            return date.toISOString().slice(0, 16);
+        }
+    });
+</script>
+{% endblock %}
